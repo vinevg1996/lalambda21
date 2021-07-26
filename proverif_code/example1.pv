@@ -1,0 +1,62 @@
+free c:channel.
+
+free s:bitstring [private].
+
+const xCurve:bitstring [data].
+const xBase:bitstring [data].
+
+(* events *)
+event Client_end(bitstring).
+event Server_end(bitstring).
+
+query attacker(s).
+(*
+query x:bitstring;
+  event(Client_end(x)) && event(Server_end(x)).
+*)
+fun Exp(bitstring,bitstring,bitstring):bitstring.
+fun Sign(bitstring,bitstring):bitstring.
+  reduc forall msg:bitstring,sign_key:bitstring;
+    CheckSign(Sign(msg, sign_key), Exp(xCurve, xBase, sign_key)) = msg.
+fun Encrypt(bitstring,bitstring):bitstring.
+  reduc forall a0:bitstring,a1:bitstring;
+    Decrypt(Encrypt(a0,a1),a1) = a0.
+fun A_Encrypt(bitstring,bitstring):bitstring.
+  reduc forall a0:bitstring,a_key:bitstring;
+    A_Decrypt(A_Encrypt(a0,Exp(xCurve, xBase, a_key)),a_key) = a0.
+
+let Client(skC:bitstring, pkC:bitstring) =
+  out(c, pkC);
+  in(c, pkS:bitstring);
+(* msg1 *)
+  new k:bitstring;
+  let sigC = Sign(k, skC) in
+  let msg1 = A_Encrypt(sigC, pkS) in
+  out(c, msg1);
+(* msg2 *)
+  in(c, msg2:bitstring);
+  let s = Decrypt(msg2, k) in
+  event Client_end(s).
+
+let Server(skS:bitstring, pkS:bitstring) =
+  in(c, pkC:bitstring);
+  out(c, pkS);
+(* msg1 *)
+  in(c, msg1:bitstring);
+  let sigC = A_Decrypt(msg1, skS) in
+  let k = CheckSign(sigC, pkC) in
+(* msg2 *)
+  (*new s:bitstring;*)
+  let msg2 = Encrypt(s, k) in
+  out(c, msg2);
+  event Server_end(s).
+
+process
+  new skC:bitstring;
+  let pkC = Exp(xCurve, xBase, skC) in
+  new skS:bitstring;
+  let pkS = Exp(xCurve, xBase, skS) in
+  (
+    Client(skC, pkC) |
+    Server(skS, pkS)
+  )

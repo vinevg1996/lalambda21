@@ -1,0 +1,93 @@
+free c:channel.
+
+const xCurve:bitstring [data].
+const xBase:bitstring [data].
+
+(* events *)
+event Client_send(bitstring).
+event Server_recv(bitstring).
+event Client_recv2(bitstring).
+event Server_send2(bitstring).
+event Client_send3(bitstring).
+event Server_recv3(bitstring).
+event Client_end(bitstring).
+event Server_end(bitstring).
+
+free s:bitstring [private].
+
+query x:bitstring;
+  event(Server_recv3(x)) ==> event(Client_send3(x)).
+
+(*
+query x:bitstring;
+  event(Client_recv2(x)) ==> event(Server_send2(x)).
+
+query x:bitstring;
+  event(Server_recv(x)) ==> event(Client_send(x)).
+
+query common_key:bitstring;
+  event(Client_end(common_key)) && event(Server_end(common_key)).
+*)
+
+fun Exp(bitstring,bitstring,bitstring):bitstring.
+fun Sign(bitstring,bitstring):bitstring.
+  reduc forall msg:bitstring,sign_key:bitstring;
+    CheckSign(Sign(msg, sign_key), Exp(xCurve, xBase, sign_key)) = msg.
+fun Encrypt(bitstring,bitstring):bitstring.
+  reduc forall a0:bitstring,a1:bitstring;
+    Decrypt(Encrypt(a0,a1),a1) = a0.
+fun A_Encrypt(bitstring,bitstring):bitstring.
+  reduc forall a0:bitstring,a_key:bitstring;
+    A_Decrypt(A_Encrypt(a0,Exp(xCurve, xBase, a_key)),a_key) = a0.
+
+equation forall a1:bitstring,a2:bitstring;
+  Exp(xCurve, Exp(xCurve, xBase, a1), a2) = Exp(xCurve, Exp(xCurve, xBase, a2), a1).
+
+let Client(skC:bitstring, pkC:bitstring, pub_key_S:bitstring) =
+(* msg1 *)
+  new x:bitstring;
+  let gx = Exp(xCurve, xBase, x) in
+  out(c, gx);
+(* msg2 *)
+  in(c, (gy:bitstring, pkS:bitstring, sigS:bitstring));
+  let serv_mess_for_sig = (gx, gy) in
+  if pkS = pub_key_S then
+  if CheckSign(sigS, pkS) = serv_mess_for_sig then
+  event Client_recv2((pkS, gy, sigS));
+(* msg3 *)
+  let clnt_mess_for_sig = (gy, gx) in
+  let sigC = Sign(clnt_mess_for_sig, skC) in
+  event Client_send((pkC, sigC));
+  event Client_send3((pkC, sigC));
+  out(c, (pkC, sigC));
+  let gxy = Exp(xCurve, gy, x) in
+  event Client_end(gxy).
+
+let Server(skS:bitstring, pkS:bitstring, pub_key_C:bitstring) =
+(* msg1 *)
+  in(c, gx:bitstring);
+(* msg2 *)
+  new y:bitstring;
+  let gy = Exp(xCurve, xBase, y) in
+  let serv_mess_for_sig = (gx, gy) in
+  let sigS = Sign(serv_mess_for_sig, skS) in
+  event Server_send2((pkS, gy, sigS));
+  out(c, (gy, pkS, sigS));
+(* msg3 *)
+  in(c, (pkC:bitstring, sigC:bitstring));
+  event Server_recv((pkC, sigC));
+  let clnt_mess_for_sig = (gy, gx) in
+  if (CheckSign(sigC, pkC)) = clnt_mess_for_sig then
+  event Server_recv3((pkC, sigC));
+  let gxy = Exp(xCurve, gx, y) in
+  event Server_end(gxy).
+
+process
+  new skC:bitstring;
+  let pkC = Exp(xCurve, xBase, skC) in
+  new skS:bitstring;
+  let pkS = Exp(xCurve, xBase, skS) in
+  (
+    Client(skC, pkC, pkS) |
+    Server(skS, pkS, pkC)
+  )
