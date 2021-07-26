@@ -37,9 +37,9 @@ let Client(skC:bitstring, pkC:bitstring) =
   new x:bitstring;
   let gx = Exp(xCurve, xBase, x) in
   event Client_send1(gx);
-  out(c, gx);
+  out(c, (pkC, gx));
 (* msg2 *)
-  in(c, gy:bitstring);
+  in(c, (pkS:bitstring, gy:bitstring));
   let gxy = Exp(xCurve, gy, x) in
   event Client_end(gxy);
   let s_enc = Encrypt(s, gxy) in
@@ -47,13 +47,13 @@ let Client(skC:bitstring, pkC:bitstring) =
 
 let Server(skS:bitstring, pkS:bitstring) =
 (* msg1 *)
-  in(c, gx:bitstring);
+  in(c, (pkC:bitstring, gx:bitstring));
   event Server_recv1(gx);
 (* msg2 *)
   new y:bitstring;
   let gy = Exp(xCurve, xBase, y) in
   let gxy = Exp(xCurve, gx, y) in
-  out(c, gy);
+  out(c, (pkS, gy));
   event Server_end(gxy).
 
 process
