@@ -2,10 +2,14 @@
 
 In order to install Proverif run:
 
-  opam update
+* opam update
 
-  opam depext conf-graphviz
+* opam depext conf-graphviz
 
-  opam depext proverif
+* opam depext proverif
 
-  opam install proverif
+* opam install proverif
+
+In order to launch Proverif code run:
+
+* proverif proverif_code/example1.pv
